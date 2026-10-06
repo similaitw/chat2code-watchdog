@@ -69,7 +69,7 @@ function Invoke-TelegramApi {
 function Get-TelegramMainKeyboardJson {
     # Use literal JSON. PowerShell can unroll nested arrays when building them
     # dynamically, which produces an invalid Telegram ReplyKeyboardMarkup.
-    return '{"keyboard":[[{"text":"📊 狀態"},{"text":"📜 最近紀錄"}],[{"text":"🔄 重啟"},{"text":"❓ 說明"}]],"resize_keyboard":true,"is_persistent":true,"input_field_placeholder":"點選下方按鈕"}'
+    return '{"keyboard":[[{"text":"📊 狀態"},{"text":"📋 任務"}],[{"text":"📜 最近紀錄"},{"text":"🔄 重啟"}],[{"text":"❓ 說明"}]],"resize_keyboard":true,"is_persistent":true,"input_field_placeholder":"點選下方按鈕"}'
 }
 
 function Get-TelegramRestartConfirmKeyboardJson {
@@ -168,6 +168,7 @@ function Get-TelegramCommand {
     if ($normalized -like "*確認重啟*") { return "/restart-confirm" }
     if ($normalized -like "*取消*") { return "/cancel" }
     if ($normalized -like "*最近紀錄*" -or $normalized -like "*紀錄*") { return "/log" }
+    if ($normalized -like "*任務*" -or $normalized -like "*工作*" -or $normalized -like "*佇列*") { return "/tasks" }
     if ($normalized -like "*狀態*") { return "/status" }
     if ($normalized -like "*重啟*") { return "/restart" }
     if ($normalized -like "*說明*") { return "/help" }
@@ -198,6 +199,82 @@ function Get-Chat2CodeStatusText {
         "Last check: " + $lastCheck + $nl +
         "Auto restarts: " + [string]$State.restartCount + $nl +
         "Last restart: " + $lastRestart
+}
+
+function Get-Chat2CodeTasksText {
+    param([pscustomobject]$Config)
+
+    $nl = [Environment]::NewLine
+
+    if (-not (Get-Command Get-ControlIssues -ErrorAction SilentlyContinue) -or
+        -not (Get-Command Convert-ControlIssue -ErrorAction SilentlyContinue)) {
+        return "📋 Chat2Code 任務" + $nl + $nl + "Dashboard 任務模組尚未載入。"
+    }
+
+    $repository = "similaitw/chat2code-control"
+    if ($Config.PSObject.Properties.Name -contains "dashboard" -and
+        $Config.dashboard.PSObject.Properties.Name -contains "controlRepository" -and
+        $Config.dashboard.controlRepository) {
+        $repository = [string]$Config.dashboard.controlRepository
+    }
+
+    try {
+        $issues = @(Get-ControlIssues -Repository $repository)
+        $tasks = @($issues | ForEach-Object { Convert-ControlIssue -Issue $_ })
+    }
+    catch {
+        return "📋 Chat2Code 任務" + $nl + $nl + "目前無法讀取工作佇列，請稍後再試。"
+    }
+
+    $running = @($tasks | Where-Object { $_.status -eq "running" })
+    $ready = @($tasks | Where-Object { $_.status -eq "ready" })
+    $failed = @($tasks | Where-Object { $_.status -eq "failed" })
+    $done = @($tasks | Where-Object { $_.status -eq "done" })
+    $other = @($tasks | Where-Object { $_.status -eq "other" })
+
+    $lines = @(
+        "📋 Chat2Code 任務",
+        "",
+        "🟢 執行中：" + $running.Count,
+        "🟡 等待中：" + $ready.Count,
+        "🔴 失敗：" + $failed.Count,
+        "✅ 已完成：" + $done.Count,
+        "⚪ 未排入：" + $other.Count
+    )
+
+    $priority = @($running) + @($ready) + @($failed)
+    if ($priority.Count -gt 0) {
+        $lines += ""
+        $lines += "需要注意："
+
+        foreach ($task in @($priority | Select-Object -First 8)) {
+            $icon = switch ($task.status) {
+                "running" { "🟢" }
+                "ready" { "🟡" }
+                "failed" { "🔴" }
+                default { "⚪" }
+            }
+
+            $title = [string]$task.title
+            if ($title.Length -gt 70) { $title = $title.Substring(0, 67) + "..." }
+            $lines += $icon + " #" + [string]$task.number + " " + $title
+        }
+
+        if ($priority.Count -gt 8) {
+            $lines += "…還有 " + [string]($priority.Count - 8) + " 個"
+        }
+    }
+    else {
+        $lines += ""
+        $lines += "目前沒有執行中或等待中的工作。"
+    }
+
+    if ($Config.PSObject.Properties.Name -contains "dashboard" -and $Config.dashboard.url) {
+        $lines += ""
+        $lines += "Dashboard：" + ([string]$Config.dashboard.url).TrimEnd("/")
+    }
+
+    return ($lines -join $nl)
 }
 
 function Get-RedactedRecentLog {
@@ -257,6 +334,10 @@ function Invoke-TelegramCommand {
     switch ($command) {
         "/status" {
             Send-TelegramMessage -Config $Config -ChatId $chatId -Text (Get-Chat2CodeStatusText -Config $Config -State $State) -ReplyMarkupJson $mainKeyboard
+        }
+
+        "/tasks" {
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text (Get-Chat2CodeTasksText -Config $Config) -ReplyMarkupJson $mainKeyboard
         }
 
         "/restart" {
@@ -326,6 +407,7 @@ function Invoke-TelegramCommand {
         "/start" {
             $helpText = "直接點下方按鈕即可操作。" + $nl +
                 "📊 狀態：查看 Runner 狀態" + $nl +
+                "📋 任務：查看工作佇列與數量" + $nl +
                 "📜 最近紀錄：查看最近 30 行紀錄" + $nl +
                 "🔄 重啟：安全重新啟動 Runner（需再次確認）"
             Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Watchdog" + $nl + $nl + $helpText) -ReplyMarkupJson $mainKeyboard
@@ -334,6 +416,7 @@ function Invoke-TelegramCommand {
         "/help" {
             $helpText = "直接點下方按鈕即可操作。" + $nl +
                 "📊 狀態：查看 Runner 狀態" + $nl +
+                "📋 任務：查看工作佇列與數量" + $nl +
                 "📜 最近紀錄：查看最近 30 行紀錄" + $nl +
                 "🔄 重啟：安全重新啟動 Runner（需再次確認）"
             Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Watchdog" + $nl + $nl + $helpText) -ReplyMarkupJson $mainKeyboard

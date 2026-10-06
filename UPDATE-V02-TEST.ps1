@@ -16,6 +16,7 @@ $files = @(
     "runner-control.ps1",
     "telegram.ps1",
     "telegram-setup.ps1",
+    "telegram-diagnose.ps1",
     "status.ps1",
     "restart.ps1",
     "install.ps1",
@@ -26,6 +27,7 @@ $files = @(
     "CHANGELOG.md",
     "VERSION",
     "TELEGRAM-SETUP.bat",
+    "TELEGRAM-DIAGNOSE.bat",
     "RESTART.bat",
     "INSTALL.bat",
     "start-watchdog.bat"

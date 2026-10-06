@@ -10,6 +10,41 @@ function Test-TelegramConfigured {
     return $true
 }
 
+function Get-TelegramSafeErrorDetail {
+    param($ErrorRecord)
+
+    $detail = ""
+    try {
+        $response = $ErrorRecord.Exception.Response
+        if ($response) {
+            $statusCode = ""
+            try { $statusCode = [string][int]$response.StatusCode } catch {}
+
+            $stream = $response.GetResponseStream()
+            if ($stream) {
+                $reader = New-Object System.IO.StreamReader($stream)
+                try { $body = $reader.ReadToEnd() } finally { $reader.Dispose() }
+
+                if ($body) {
+                    try {
+                        $parsed = $body | ConvertFrom-Json
+                        if ($parsed.description) {
+                            $detail = [string]$parsed.description
+                        }
+                    }
+                    catch {}
+                }
+            }
+
+            if ($statusCode -and $detail) { return "HTTP " + $statusCode + " - " + $detail }
+            if ($statusCode) { return "HTTP " + $statusCode }
+        }
+    }
+    catch {}
+
+    return "request failed"
+}
+
 function Invoke-TelegramApi {
     param(
         [Parameter(Mandatory = $true)][pscustomobject]$Config,
@@ -26,41 +61,19 @@ function Invoke-TelegramApi {
         return Invoke-RestMethod -Method Post -Uri $uri -Body $Body -TimeoutSec $TimeoutSeconds -ErrorAction Stop
     }
     catch {
-        throw "Telegram API request failed for method " + $Method
+        $safeDetail = Get-TelegramSafeErrorDetail -ErrorRecord $_
+        throw ("Telegram API " + $Method + " failed: " + $safeDetail)
     }
 }
 
 function Get-TelegramMainKeyboardJson {
-    $keyboard = @{
-        keyboard = @(
-            @(
-                @{ text = "📊 狀態" },
-                @{ text = "📜 最近紀錄" }
-            ),
-            @(
-                @{ text = "🔄 重啟" },
-                @{ text = "❓ 說明" }
-            )
-        )
-        resize_keyboard = $true
-        is_persistent = $true
-        input_field_placeholder = "點選下方按鈕"
-    }
-    return ($keyboard | ConvertTo-Json -Depth 8 -Compress)
+    # Use literal JSON. PowerShell can unroll nested arrays when building them
+    # dynamically, which produces an invalid Telegram ReplyKeyboardMarkup.
+    return '{"keyboard":[[{"text":"📊 狀態"},{"text":"📜 最近紀錄"}],[{"text":"🔄 重啟"},{"text":"❓ 說明"}]],"resize_keyboard":true,"is_persistent":true,"input_field_placeholder":"點選下方按鈕"}'
 }
 
 function Get-TelegramRestartConfirmKeyboardJson {
-    $keyboard = @{
-        keyboard = @(
-            @(
-                @{ text = "✅ 確認重啟" },
-                @{ text = "❌ 取消" }
-            )
-        )
-        resize_keyboard = $true
-        one_time_keyboard = $true
-    }
-    return ($keyboard | ConvertTo-Json -Depth 8 -Compress)
+    return '{"keyboard":[[{"text":"✅ 確認重啟"},{"text":"❌ 取消"}]],"resize_keyboard":true,"one_time_keyboard":true}'
 }
 
 function Send-TelegramMessage {
@@ -247,13 +260,21 @@ function Invoke-TelegramCommand {
         }
 
         "/restart" {
-            $confirmKeyboard = Get-TelegramRestartConfirmKeyboardJson
             $currentRunner = @(Get-Chat2CodeRunnerProcesses -Config $Config)
             $currentPids = if ($currentRunner.Count -gt 0) { (@($currentRunner.ProcessId) -join ", ") } else { "-" }
-            $message = "⚠️ 已收到重啟要求。" + $nl +
-                "目前 Runner PID(s): " + $currentPids + $nl + $nl +
-                "確定要重新啟動嗎？正在執行的工作可能會中斷。"
-            Send-TelegramMessage -Config $Config -ChatId $chatId -Text $message -ReplyMarkupJson $confirmKeyboard
+
+            # First acknowledgement intentionally has no reply_markup.
+            # The user will still see an immediate response even if keyboard rendering fails.
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text (
+                "⚠️ 已收到重啟要求。" + $nl +
+                "目前 Runner PID(s): " + $currentPids
+            )
+
+            $confirmKeyboard = Get-TelegramRestartConfirmKeyboardJson
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text (
+                "確定要重新啟動嗎？正在執行的工作可能會中斷。" + $nl +
+                "請點選下方「✅ 確認重啟」或「❌ 取消」。"
+            ) -ReplyMarkupJson $confirmKeyboard
         }
 
         "/restart-confirm" {

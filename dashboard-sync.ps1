@@ -220,24 +220,26 @@ function Send-DashboardSnapshot {
     }
 }
 
-if ($Once) {
-    $result = Send-DashboardSnapshot
-    Write-Host ("Dashboard sync OK. taskCount=" + [string]$result.taskCount) -ForegroundColor Green
-    exit 0
-}
-
-$interval = 30
-if ($config.dashboard.PSObject.Properties.Name -contains "syncSeconds") {
-    $interval = [Math]::Max(15, [int]$config.dashboard.syncSeconds)
-}
-
-while ($true) {
-    try {
+if ($MyInvocation.InvocationName -ne ".") {
+    if ($Once) {
         $result = Send-DashboardSnapshot
-        Write-Host ((Get-Date).ToString("yyyy-MM-dd HH:mm:ss") + " Dashboard sync OK taskCount=" + [string]$result.taskCount)
+        Write-Host ("Dashboard sync OK. taskCount=" + [string]$result.taskCount) -ForegroundColor Green
+        exit 0
     }
-    catch {
-        Write-Warning $_.Exception.Message
+
+    $interval = 30
+    if ($config.dashboard.PSObject.Properties.Name -contains "syncSeconds") {
+        $interval = [Math]::Max(15, [int]$config.dashboard.syncSeconds)
     }
-    Start-Sleep -Seconds $interval
+
+    while ($true) {
+        try {
+            $result = Send-DashboardSnapshot
+            Write-Host ((Get-Date).ToString("yyyy-MM-dd HH:mm:ss") + " Dashboard sync OK taskCount=" + [string]$result.taskCount)
+        }
+        catch {
+            Write-Warning $_.Exception.Message
+        }
+        Start-Sleep -Seconds $interval
+    }
 }

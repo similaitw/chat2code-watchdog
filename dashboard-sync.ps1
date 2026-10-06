@@ -192,8 +192,8 @@ function Get-RunnerSnapshot {
         $workers = [Math]::Max(1, [int]$config.dashboard.workers)
     }
 
-    $pid = $null
-    if ($runner.Count -gt 0) { $pid = [int]$runner[0].ProcessId }
+    $runnerPid = $null
+    if ($runner.Count -gt 0) { $runnerPid = [int]$runner[0].ProcessId }
 
     $restartCount = $null
     $lastHeartbeat = (Get-Date).ToString("o")
@@ -227,7 +227,7 @@ function Get-RunnerSnapshot {
 
     return [ordered]@{
         status = if ($runner.Count -gt 0) { "running" } else { "offline" }
-        pid = $pid
+        pid = $runnerPid
         workers = $workers
         activeWorkers = $null
         lastHeartbeat = $lastHeartbeat

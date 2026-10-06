@@ -6,6 +6,7 @@ $ErrorActionPreference = "Stop"
 
 $ConfigPath = Join-Path $PSScriptRoot "config.json"
 $TelegramPath = Join-Path $PSScriptRoot "telegram.ps1"
+$TaskName = "Chat2Code Watchdog"
 
 if (-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)) {
     throw "config.json not found."
@@ -33,6 +34,9 @@ if ($chatIds.Count -eq 0) {
 }
 $chatId = [string]$chatIds[0]
 
+$taskExists = $null -ne (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue)
+$taskStoppedForTest = $false
+
 Write-Host "=== Chat2Code Watchdog Telegram Diagnose ===" -ForegroundColor Cyan
 
 function Run-DiagnosticStep {
@@ -53,36 +57,57 @@ function Run-DiagnosticStep {
 
 $allOk = $true
 
-$ok = Run-DiagnosticStep "getMe" {
-    $result = Invoke-TelegramApi -Config $config -Method "getMe"
-    if (-not $result.ok) { throw "getMe returned ok=false" }
-    Write-Host ("Bot: @" + [string]$result.result.username)
-}
-if (-not $ok) { $allOk = $false }
-
-$ok = Run-DiagnosticStep "getUpdates" {
-    $result = Invoke-TelegramApi -Config $config -Method "getUpdates" -Body @{
-        timeout = 0
-        allowed_updates = '["message"]'
+try {
+    if ($taskExists) {
+        Write-Host "Temporarily stopping Watchdog polling to avoid Telegram getUpdates conflicts..."
+        Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        $taskStoppedForTest = $true
+        Start-Sleep -Seconds 3
     }
-    if (-not $result.ok) { throw "getUpdates returned ok=false" }
-}
-if (-not $ok) { $allOk = $false }
 
-$ok = Run-DiagnosticStep "sendMessage plain text" {
-    Send-TelegramMessage -Config $config -ChatId $chatId -Text "Chat2Code Telegram diagnostic: plain text OK"
-}
-if (-not $ok) { $allOk = $false }
+    $ok = Run-DiagnosticStep "getMe" {
+        $result = Invoke-TelegramApi -Config $config -Method "getMe"
+        if (-not $result.ok) { throw "getMe returned ok=false" }
+        Write-Host ("Bot: @" + [string]$result.result.username)
+    }
+    if (-not $ok) { $allOk = $false }
 
-$ok = Run-DiagnosticStep "sendMessage main keyboard" {
-    Send-TelegramMessage -Config $config -ChatId $chatId -Text "Chat2Code Telegram diagnostic: button menu OK" -ReplyMarkupJson (Get-TelegramMainKeyboardJson)
-}
-if (-not $ok) { $allOk = $false }
+    $ok = Run-DiagnosticStep "getUpdates" {
+        $result = Invoke-TelegramApi -Config $config -Method "getUpdates" -Body @{
+            timeout = 0
+            allowed_updates = '["message"]'
+        }
+        if (-not $result.ok) { throw "getUpdates returned ok=false" }
+    }
+    if (-not $ok) { $allOk = $false }
 
-$ok = Run-DiagnosticStep "sendMessage restart confirmation keyboard" {
-    Send-TelegramMessage -Config $config -ChatId $chatId -Text "Chat2Code Telegram diagnostic: restart confirmation OK" -ReplyMarkupJson (Get-TelegramRestartConfirmKeyboardJson)
+    $ok = Run-DiagnosticStep "sendMessage plain text" {
+        Send-TelegramMessage -Config $config -ChatId $chatId -Text "Chat2Code Telegram diagnostic: plain text OK"
+    }
+    if (-not $ok) { $allOk = $false }
+
+    $ok = Run-DiagnosticStep "sendMessage main keyboard" {
+        Send-TelegramMessage -Config $config -ChatId $chatId -Text "Chat2Code Telegram diagnostic: button menu OK" -ReplyMarkupJson (Get-TelegramMainKeyboardJson)
+    }
+    if (-not $ok) { $allOk = $false }
+
+    $ok = Run-DiagnosticStep "sendMessage restart confirmation keyboard" {
+        Send-TelegramMessage -Config $config -ChatId $chatId -Text "Chat2Code Telegram diagnostic: restart confirmation OK" -ReplyMarkupJson (Get-TelegramRestartConfirmKeyboardJson)
+    }
+    if (-not $ok) { $allOk = $false }
 }
-if (-not $ok) { $allOk = $false }
+finally {
+    if ($taskExists -and $taskStoppedForTest) {
+        Write-Host "Restarting Watchdog scheduled task..."
+        try {
+            Start-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+            Write-Host "Watchdog restarted." -ForegroundColor Green
+        }
+        catch {
+            Write-Warning "Could not restart Watchdog automatically. Run: Start-ScheduledTask -TaskName 'Chat2Code Watchdog'"
+        }
+    }
+}
 
 Write-Host ""
 if ($allOk) {

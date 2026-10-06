@@ -30,24 +30,63 @@ function Invoke-TelegramApi {
     }
 }
 
+function Get-TelegramMainKeyboardJson {
+    $keyboard = @{
+        keyboard = @(
+            @(
+                @{ text = "📊 狀態" },
+                @{ text = "📜 最近紀錄" }
+            ),
+            @(
+                @{ text = "🔄 重啟" },
+                @{ text = "❓ 說明" }
+            )
+        )
+        resize_keyboard = $true
+        is_persistent = $true
+        input_field_placeholder = "點選下方按鈕"
+    }
+    return ($keyboard | ConvertTo-Json -Depth 8 -Compress)
+}
+
+function Get-TelegramRestartConfirmKeyboardJson {
+    $keyboard = @{
+        keyboard = @(
+            @(
+                @{ text = "✅ 確認重啟" },
+                @{ text = "❌ 取消" }
+            )
+        )
+        resize_keyboard = $true
+        one_time_keyboard = $true
+    }
+    return ($keyboard | ConvertTo-Json -Depth 8 -Compress)
+}
+
 function Send-TelegramMessage {
     param(
         [Parameter(Mandatory = $true)][pscustomobject]$Config,
         [Parameter(Mandatory = $true)][string]$ChatId,
-        [Parameter(Mandatory = $true)][string]$Text
+        [Parameter(Mandatory = $true)][string]$Text,
+        [string]$ReplyMarkupJson = ""
     )
 
     if ($Text.Length -gt 3900) {
         $Text = $Text.Substring(0, 3900) + [Environment]::NewLine + "... (truncated)"
     }
 
-    [void](Invoke-TelegramApi -Config $Config -Method "sendMessage" -Body @{
+    $body = @{
         chat_id = $ChatId
         text = $Text
         disable_web_page_preview = "true"
-    })
-}
+    }
 
+    if ($ReplyMarkupJson) {
+        $body.reply_markup = $ReplyMarkupJson
+    }
+
+    [void](Invoke-TelegramApi -Config $Config -Method "sendMessage" -Body $body)
+}
 
 function Send-TelegramNotification {
     param(
@@ -107,7 +146,18 @@ function Get-TelegramCommand {
     param([string]$Text)
 
     if (-not $Text) { return "" }
-    $firstToken = ($Text.Trim() -split "\s+")[0]
+    $trimmed = $Text.Trim()
+
+    switch ($trimmed) {
+        "📊 狀態" { return "/status" }
+        "📜 最近紀錄" { return "/log" }
+        "🔄 重啟" { return "/restart" }
+        "❓ 說明" { return "/help" }
+        "✅ 確認重啟" { return "/restart-confirm" }
+        "❌ 取消" { return "/cancel" }
+    }
+
+    $firstToken = ($trimmed -split "\s+")[0]
     if (-not $firstToken.StartsWith("/")) { return "" }
     return (($firstToken -split "@")[0]).ToLowerInvariant()
 }
@@ -187,14 +237,23 @@ function Invoke-TelegramCommand {
     if ($Logger) { & $Logger "INFO" ("Authorized Telegram command userId=" + $userId + " command=" + $command) }
     $nl = [Environment]::NewLine
 
+    $mainKeyboard = Get-TelegramMainKeyboardJson
+
     switch ($command) {
         "/status" {
-            Send-TelegramMessage -Config $Config -ChatId $chatId -Text (Get-Chat2CodeStatusText -Config $Config -State $State)
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text (Get-Chat2CodeStatusText -Config $Config -State $State) -ReplyMarkupJson $mainKeyboard
         }
+
         "/restart" {
-            Send-TelegramMessage -Config $Config -ChatId $chatId -Text "Restarting Chat2Code Runner..."
+            $confirmKeyboard = Get-TelegramRestartConfirmKeyboardJson
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text "確定要重新啟動 Chat2Code Runner 嗎？正在執行的工作可能會中斷。" -ReplyMarkupJson $confirmKeyboard
+        }
+
+        "/restart-confirm" {
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text "正在重新啟動 Chat2Code Runner..."
             $result = Restart-Chat2CodeRunner -Config $Config -Logger $Logger
             $State.lastRestart = (Get-Date).ToString("o")
+
             if (-not ($State.PSObject.Properties.Name -contains "manualRestartCount")) {
                 $State | Add-Member -NotePropertyName manualRestartCount -NotePropertyValue 0
             }
@@ -204,29 +263,43 @@ function Invoke-TelegramCommand {
                 $State.runnerStatus = "running"
                 $State.runnerPids = @($result.Pids)
                 $State.lastError = $null
-                Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Runner restarted successfully." + $nl + "PID(s): " + (@($result.Pids) -join ", "))
+                Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("✅ Chat2Code Runner 已重新啟動。" + $nl + "PID(s): " + (@($result.Pids) -join ", ")) -ReplyMarkupJson $mainKeyboard
             }
             else {
                 $State.runnerStatus = "offline"
                 $State.runnerPids = @()
                 $State.lastError = "Manual restart failed: " + [string]$result.Message
-                Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Runner restart failed." + $nl + "Use /log to inspect recent watchdog events.")
+                Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("❌ Chat2Code Runner 重啟失敗。" + $nl + "請點「📜 最近紀錄」查看。") -ReplyMarkupJson $mainKeyboard
             }
         }
+
+        "/cancel" {
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text "已取消重啟。" -ReplyMarkupJson $mainKeyboard
+        }
+
         "/log" {
             $logText = Get-RedactedRecentLog -Config $Config -LogPath $LogPath -Lines 30
-            Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Recent Watchdog log:" + $nl + $nl + $logText)
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("最近 30 行 Watchdog 紀錄：" + $nl + $nl + $logText) -ReplyMarkupJson $mainKeyboard
         }
+
         "/start" {
-            $helpText = "/status - view Runner status" + $nl + "/restart - restart Chat2Code Runner" + $nl + "/log - last 30 Watchdog log lines" + $nl + "/help - show this help"
-            Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Watchdog" + $nl + $nl + $helpText)
+            $helpText = "直接點下方按鈕即可操作。" + $nl +
+                "📊 狀態：查看 Runner 狀態" + $nl +
+                "📜 最近紀錄：查看最近 30 行紀錄" + $nl +
+                "🔄 重啟：安全重新啟動 Runner（需再次確認）"
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Watchdog" + $nl + $nl + $helpText) -ReplyMarkupJson $mainKeyboard
         }
+
         "/help" {
-            $helpText = "/status - view Runner status" + $nl + "/restart - restart Chat2Code Runner" + $nl + "/log - last 30 Watchdog log lines" + $nl + "/help - show this help"
-            Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Watchdog" + $nl + $nl + $helpText)
+            $helpText = "直接點下方按鈕即可操作。" + $nl +
+                "📊 狀態：查看 Runner 狀態" + $nl +
+                "📜 最近紀錄：查看最近 30 行紀錄" + $nl +
+                "🔄 重啟：安全重新啟動 Runner（需再次確認）"
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Watchdog" + $nl + $nl + $helpText) -ReplyMarkupJson $mainKeyboard
         }
+
         default {
-            Send-TelegramMessage -Config $Config -ChatId $chatId -Text "Unknown command. Use /help."
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text "請使用下方按鈕操作。" -ReplyMarkupJson $mainKeyboard
         }
     }
 

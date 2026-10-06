@@ -125,6 +125,10 @@ $telegramModule = Join-Path $ScriptRoot "telegram.ps1"
 $telegramModuleAvailable = Test-Path -LiteralPath $telegramModule -PathType Leaf
 if ($telegramModuleAvailable) { . $telegramModule }
 
+$dashboardModule = Join-Path $ScriptRoot "dashboard-sync.ps1"
+$dashboardModuleAvailable = Test-Path -LiteralPath $dashboardModule -PathType Leaf
+if ($dashboardModuleAvailable) { . $dashboardModule }
+
 $mutex = New-Object System.Threading.Mutex($false, "Local\Chat2CodeWatchdog")
 $hasMutex = $false
 $state = $null
@@ -161,7 +165,14 @@ try {
         $pollSeconds = [Math]::Max(2, [Math]::Min(30, [int]$Config.telegram.pollSeconds))
     }
 
+    $dashboardInterval = 30
+    if ($Config.PSObject.Properties.Name -contains "dashboard" -and
+        $Config.dashboard.PSObject.Properties.Name -contains "syncSeconds") {
+        $dashboardInterval = [Math]::Max(15, [int]$Config.dashboard.syncSeconds)
+    }
+
     $nextHealthCheck = Get-Date
+    $nextDashboardSync = Get-Date
 
     do {
         $now = Get-Date
@@ -236,6 +247,18 @@ try {
 
             $nextHealthCheck = (Get-Date).AddSeconds($healthInterval)
             Save-State -State $state
+        }
+
+        if (-not $Once -and $dashboardModuleAvailable -and
+            (Test-DashboardConfigured -Config $Config) -and $now -ge $nextDashboardSync) {
+            try {
+                $dashboardResult = Send-DashboardSnapshot
+                Write-Log -Level "DEBUG" -Message ("Dashboard sync OK taskCount=" + [string]$dashboardResult.taskCount)
+            }
+            catch {
+                Write-Log -Level "WARN" -Message ("Dashboard sync failed; will retry: " + $_.Exception.Message)
+            }
+            $nextDashboardSync = (Get-Date).AddSeconds($dashboardInterval)
         }
 
         if (-not $Once -and $telegramModuleAvailable -and (Test-TelegramConfigured -Config $Config)) {

@@ -146,18 +146,20 @@ function Get-TelegramCommand {
     param([string]$Text)
 
     if (-not $Text) { return "" }
-    $trimmed = $Text.Trim()
 
-    switch ($trimmed) {
-        "📊 狀態" { return "/status" }
-        "📜 最近紀錄" { return "/log" }
-        "🔄 重啟" { return "/restart" }
-        "❓ 說明" { return "/help" }
-        "✅ 確認重啟" { return "/restart-confirm" }
-        "❌ 取消" { return "/cancel" }
-    }
+    # Telegram clients may add Unicode variation selectors to emoji.
+    # Strip those invisible characters and match the Chinese action keyword,
+    # so button handling does not depend on the exact emoji encoding.
+    $normalized = $Text.Trim().Replace([char]0xFE0E, "").Replace([char]0xFE0F, "")
 
-    $firstToken = ($trimmed -split "\s+")[0]
+    if ($normalized -like "*確認重啟*") { return "/restart-confirm" }
+    if ($normalized -like "*取消*") { return "/cancel" }
+    if ($normalized -like "*最近紀錄*" -or $normalized -like "*紀錄*") { return "/log" }
+    if ($normalized -like "*狀態*") { return "/status" }
+    if ($normalized -like "*重啟*") { return "/restart" }
+    if ($normalized -like "*說明*") { return "/help" }
+
+    $firstToken = ($normalized -split "\s+")[0]
     if (-not $firstToken.StartsWith("/")) { return "" }
     return (($firstToken -split "@")[0]).ToLowerInvariant()
 }
@@ -246,11 +248,24 @@ function Invoke-TelegramCommand {
 
         "/restart" {
             $confirmKeyboard = Get-TelegramRestartConfirmKeyboardJson
-            Send-TelegramMessage -Config $Config -ChatId $chatId -Text "確定要重新啟動 Chat2Code Runner 嗎？正在執行的工作可能會中斷。" -ReplyMarkupJson $confirmKeyboard
+            $currentRunner = @(Get-Chat2CodeRunnerProcesses -Config $Config)
+            $currentPids = if ($currentRunner.Count -gt 0) { (@($currentRunner.ProcessId) -join ", ") } else { "-" }
+            $message = "⚠️ 已收到重啟要求。" + $nl +
+                "目前 Runner PID(s): " + $currentPids + $nl + $nl +
+                "確定要重新啟動嗎？正在執行的工作可能會中斷。"
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text $message -ReplyMarkupJson $confirmKeyboard
         }
 
         "/restart-confirm" {
-            Send-TelegramMessage -Config $Config -ChatId $chatId -Text "正在重新啟動 Chat2Code Runner..."
+            $beforeRunner = @(Get-Chat2CodeRunnerProcesses -Config $Config)
+            $beforePids = if ($beforeRunner.Count -gt 0) { (@($beforeRunner.ProcessId) -join ", ") } else { "-" }
+
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text (
+                "🔄 正在重新啟動 Chat2Code Runner..." + $nl +
+                "舊 PID(s): " + $beforePids + $nl +
+                "預計約 5～25 秒完成。"
+            )
+
             $result = Restart-Chat2CodeRunner -Config $Config -Logger $Logger
             $State.lastRestart = (Get-Date).ToString("o")
 
@@ -263,7 +278,12 @@ function Invoke-TelegramCommand {
                 $State.runnerStatus = "running"
                 $State.runnerPids = @($result.Pids)
                 $State.lastError = $null
-                Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("✅ Chat2Code Runner 已重新啟動。" + $nl + "PID(s): " + (@($result.Pids) -join ", ")) -ReplyMarkupJson $mainKeyboard
+                Send-TelegramMessage -Config $Config -ChatId $chatId -Text (
+                    "✅ Chat2Code Runner 已重新啟動。" + $nl +
+                    "舊 PID(s): " + $beforePids + $nl +
+                    "新 PID(s): " + (@($result.Pids) -join ", ") + $nl +
+                    "完成時間: " + (Get-Date).ToString("HH:mm:ss")
+                ) -ReplyMarkupJson $mainKeyboard
             }
             else {
                 $State.runnerStatus = "offline"

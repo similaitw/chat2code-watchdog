@@ -252,7 +252,7 @@ try {
             }
             catch {
                 $state.telegramLastError = $_.Exception.Message
-                Write-Log -Level "WARN" -Message "Telegram polling failed; will retry"
+                Write-Log -Level "WARN" -Message ("Telegram polling failed; will retry: " + $_.Exception.Message)
             }
             Save-State -State $state
         }

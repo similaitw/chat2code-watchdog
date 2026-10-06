@@ -70,6 +70,8 @@ function New-DefaultState {
         manualRestartCount = 0
         telegramOffset     = 0
         telegramLastError  = $null
+        dashboardLastUpdate = $null
+        dashboardLastError  = $null
         lastError          = $null
     }
 }
@@ -125,6 +127,10 @@ $telegramModule = Join-Path $ScriptRoot "telegram.ps1"
 $telegramModuleAvailable = Test-Path -LiteralPath $telegramModule -PathType Leaf
 if ($telegramModuleAvailable) { . $telegramModule }
 
+$dashboardModule = Join-Path $ScriptRoot "dashboard.ps1"
+$dashboardModuleAvailable = Test-Path -LiteralPath $dashboardModule -PathType Leaf
+if ($dashboardModuleAvailable) { . $dashboardModule }
+
 $mutex = New-Object System.Threading.Mutex($false, "Local\Chat2CodeWatchdog")
 $hasMutex = $false
 $state = $null
@@ -161,7 +167,14 @@ try {
         $pollSeconds = [Math]::Max(2, [Math]::Min(30, [int]$Config.telegram.pollSeconds))
     }
 
+    $dashboardInterval = 60
+    if ($Config.PSObject.Properties.Name -contains "dashboard" -and
+        $Config.dashboard.PSObject.Properties.Name -contains "updateSeconds") {
+        $dashboardInterval = [Math]::Max(30, [int]$Config.dashboard.updateSeconds)
+    }
+
     $nextHealthCheck = Get-Date
+    $nextDashboardUpdate = Get-Date
 
     do {
         $now = Get-Date
@@ -235,6 +248,20 @@ try {
             }
 
             $nextHealthCheck = (Get-Date).AddSeconds($healthInterval)
+            Save-State -State $state
+        }
+
+        if ($dashboardModuleAvailable -and (Test-DashboardConfigured -Config $Config) -and ($Once -or (Get-Date) -ge $nextDashboardUpdate)) {
+            try {
+                $updatedAt = Update-DashboardStatus -Config $Config -State $state -Logger $Logger
+                $state.dashboardLastUpdate = $updatedAt
+                $state.dashboardLastError = $null
+            }
+            catch {
+                $state.dashboardLastError = $_.Exception.Message
+                Write-Log -Level "WARN" -Message ("Dashboard heartbeat failed; will retry: " + $_.Exception.Message)
+            }
+            $nextDashboardUpdate = (Get-Date).AddSeconds($dashboardInterval)
             Save-State -State $state
         }
 

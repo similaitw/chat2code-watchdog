@@ -38,3 +38,12 @@ else {
 }
 
 if ($state.lastError) { Write-Host "LastError: $($state.lastError)" -ForegroundColor Red }
+
+if ($state.PSObject.Properties.Name -contains "dashboardLastUpdate") {
+    if ($state.dashboardLastUpdate) {
+        Write-Host "Dashboard: heartbeat $($state.dashboardLastUpdate)" -ForegroundColor Green
+    }
+    elseif ($state.PSObject.Properties.Name -contains "dashboardLastError" -and $state.dashboardLastError) {
+        Write-Host "Dashboard: error - $($state.dashboardLastError)" -ForegroundColor Yellow
+    }
+}

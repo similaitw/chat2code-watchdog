@@ -38,6 +38,10 @@ jobs:
         shell: powershell
         run: .\tests\telegram-unit.ps1
 
+      - name: Run Dashboard unit tests
+        shell: powershell
+        run: .\tests\dashboard-unit.ps1
+
       - name: Enforce remote-command safety boundary
         shell: powershell
         run: |

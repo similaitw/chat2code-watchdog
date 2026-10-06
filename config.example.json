@@ -19,5 +19,12 @@
     "allowedUserIds": [],
     "pollSeconds": 5,
     "notificationChatIds": []
+  },
+  "dashboard": {
+    "enabled": false,
+    "statusIssueNumber": 38,
+    "controlRepo": "similaitw/chat2code-control",
+    "updateSeconds": 60,
+    "runnerVersion": "0.4.1"
   }
 }

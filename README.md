@@ -184,3 +184,22 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/similaitw/chat2code-wa
 ```
 
 The updater downloads all v0.2 test files to a temporary folder first, validates PowerShell syntax and JSON, then stops the Watchdog briefly and replaces the program files atomically. It preserves local `config.json`, `runtime/`, and `logs/`.
+
+
+## Dashboard heartbeat (v0.3)
+
+The Watchdog can publish a small read-only heartbeat to a dedicated issue in the Chat2Code control repository. It reuses the GitHub CLI authentication already required by Chat2Code Runner.
+
+Run:
+
+```text
+DASHBOARD-SETUP.bat
+```
+
+Default status issue for this installation:
+
+```text
+similaitw/chat2code-control#38
+```
+
+Published fields are operational metadata only: Runner status/PID, worker counts, heartbeat time, restart count, machine name, and Runner version. No source code, Bot Token, GitHub Token, passwords, or workspace files are published.

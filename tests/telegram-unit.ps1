@@ -32,6 +32,17 @@ Assert-True (-not (Test-TelegramAuthorized -Config $config -UserId "99999")) "un
 Assert-Equal (Get-TelegramCommand -Text "/status") "/status" "status command"
 Assert-Equal (Get-TelegramCommand -Text "/restart@mybot extra") "/restart" "group bot command"
 Assert-Equal (Get-TelegramCommand -Text "hello") "" "non-command ignored"
+Assert-Equal (Get-TelegramCommand -Text "📊 狀態") "/status" "status button mapping"
+Assert-Equal (Get-TelegramCommand -Text "📜 最近紀錄") "/log" "log button mapping"
+Assert-Equal (Get-TelegramCommand -Text "🔄 重啟") "/restart" "restart button mapping"
+Assert-Equal (Get-TelegramCommand -Text "✅ 確認重啟") "/restart-confirm" "restart confirm mapping"
+Assert-Equal (Get-TelegramCommand -Text "❌ 取消") "/cancel" "restart cancel mapping"
+
+$mainKeyboard = Get-TelegramMainKeyboardJson | ConvertFrom-Json
+Assert-True ($mainKeyboard.is_persistent) "main keyboard persistent"
+Assert-Equal $mainKeyboard.keyboard[0][0].text "📊 狀態" "main keyboard status label"
+$confirmKeyboard = Get-TelegramRestartConfirmKeyboardJson | ConvertFrom-Json
+Assert-Equal $confirmKeyboard.keyboard[0][0].text "✅ 確認重啟" "confirm keyboard label"
 
 $tempLog = Join-Path $env:TEMP ("chat2code-watchdog-test-" + [guid]::NewGuid().ToString("N") + ".log")
 try {

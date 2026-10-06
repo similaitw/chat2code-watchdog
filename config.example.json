@@ -1,0 +1,16 @@
+{
+  "runner": {
+    "workingDirectory": "H:\\AI_Project\\chat2code-runner",
+    "startScript": "start.ps1",
+    "commandLineMarker": "chat2code_runner",
+    "checkIntervalSeconds": 60,
+    "startupVerifySeconds": 20,
+    "windowStyle": "Minimized"
+  },
+  "watchdog": {
+    "autoRestart": true,
+    "restartDelaySeconds": 5,
+    "maxRestartAttempts": 3,
+    "restartWindowMinutes": 15
+  }
+}

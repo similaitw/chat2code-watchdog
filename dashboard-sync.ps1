@@ -73,7 +73,7 @@ function Get-ControlIssues {
     }
 
     $endpoint = "repos/" + $Repository + "/issues?state=open&per_page=100"
-    $json = & $gh.Source api --paginate $endpoint 2>&1
+    $json = & $gh.Source api $endpoint 2>&1
     if ($LASTEXITCODE -ne 0) {
         throw "gh api failed while reading control queue."
     }
@@ -163,9 +163,22 @@ function Get-RunnerSnapshot {
     }
 
     $version = $null
-    $versionPath = Join-Path ([string]$config.runner.workingDirectory) "VERSION"
+    $runnerRoot = [string]$config.runner.workingDirectory
+    $versionPath = Join-Path $runnerRoot "VERSION"
     if (Test-Path -LiteralPath $versionPath -PathType Leaf) {
         try { $version = (Get-Content -LiteralPath $versionPath -Raw).Trim() } catch {}
+    }
+    if (-not $version) {
+        $pyprojectPath = Join-Path $runnerRoot "pyproject.toml"
+        if (Test-Path -LiteralPath $pyprojectPath -PathType Leaf) {
+            try {
+                $versionLine = Get-Content -LiteralPath $pyprojectPath | Where-Object { $_ -match '^version\s*=\s*"([^"]+)"' } | Select-Object -First 1
+                if ($versionLine -and $versionLine -match '^version\s*=\s*"([^"]+)"') {
+                    $version = $Matches[1]
+                }
+            }
+            catch {}
+        }
     }
 
     return [ordered]@{

@@ -153,3 +153,22 @@ Telegram polling runs inside the existing Watchdog process. The bot is checked a
 
 
 When the Watchdog detects that the Runner disappeared and performs an automatic recovery attempt, the configured Telegram chat also receives a proactive success/failure notification. This means normal use does not require repeatedly sending `/status`.
+
+
+## Safe local restart
+
+Do not manually launch `chat2code-runner\start.ps1` while Watchdog is managing the Runner.
+
+Use either:
+
+```powershell
+.\restart.ps1
+```
+
+or double-click:
+
+```text
+RESTART.bat
+```
+
+The command temporarily stops the Watchdog scheduled task, restarts only the positively identified Chat2Code Runner process tree, verifies the new Runner PID, then starts the Watchdog again.

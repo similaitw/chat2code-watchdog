@@ -150,7 +150,7 @@ function Get-TelegramCommand {
     # Telegram clients may add Unicode variation selectors to emoji.
     # Strip those invisible characters and match the Chinese action keyword,
     # so button handling does not depend on the exact emoji encoding.
-    $normalized = $Text.Trim().Replace([char]0xFE0E, "").Replace([char]0xFE0F, "")
+    $normalized = [regex]::Replace($Text.Trim(), "[\uFE0E\uFE0F]", "")
 
     if ($normalized -like "*確認重啟*") { return "/restart-confirm" }
     if ($normalized -like "*取消*") { return "/cancel" }

@@ -17,6 +17,7 @@
     "enabled": false,
     "botToken": "",
     "allowedUserIds": [],
-    "pollSeconds": 5
+    "pollSeconds": 5,
+    "notificationChatIds": []
   }
 }

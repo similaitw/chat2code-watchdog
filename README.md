@@ -118,3 +118,35 @@ v0.2 will add a Telegram control channel with a strict allow-list and only these
 - `/help`
 
 No `/exec`, `/cmd`, `/powershell`, or arbitrary remote command feature will be added.
+
+
+## Telegram control (v0.2)
+
+After v0.2 is installed, run:
+
+```text
+TELEGRAM-SETUP.bat
+```
+
+The setup wizard:
+
+1. asks for the Bot Token using hidden input;
+2. verifies the bot with Telegram;
+3. waits for you to send `/start` to that bot;
+4. automatically records only that Telegram user ID in local `config.json`;
+5. restarts the Watchdog scheduled task.
+
+`config.json` is ignored by Git and must never be committed.
+
+Supported commands:
+
+```text
+/status
+/restart
+/log
+/help
+```
+
+There is deliberately no remote shell, `/exec`, `/cmd`, or arbitrary PowerShell execution.
+
+Telegram polling runs inside the existing Watchdog process. The bot is checked about every 5 seconds, while Runner health checks remain at the configured interval (default 60 seconds).

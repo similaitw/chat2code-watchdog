@@ -7,7 +7,9 @@ $ErrorActionPreference = "Stop"
 $Branch = "feature/telegram-v0.2"
 $BaseUrl = "https://raw.githubusercontent.com/similaitw/chat2code-watchdog/" + $Branch + "/"
 $TaskName = "Chat2Code Watchdog"
-$TempRoot = Join-Path $env:TEMP ("chat2code-watchdog-update-" + [guid]::NewGuid().ToString("N"))
+$SessionId = [guid]::NewGuid().ToString("N")
+$TempRoot = Join-Path $env:TEMP ("chat2code-watchdog-update-" + $SessionId)
+$BackupRoot = Join-Path $env:TEMP ("chat2code-watchdog-backup-" + $SessionId)
 
 $files = @(
     "watchdog.ps1",
@@ -30,9 +32,14 @@ $files = @(
 )
 
 Write-Host "=== Chat2Code Watchdog v0.2 Test Updater ===" -ForegroundColor Cyan
-Write-Host "This updater preserves config.json, runtime/, and logs/."
+Write-Host "Preserved: config.json, runtime/, logs/"
 
 New-Item -ItemType Directory -Path $TempRoot -Force | Out-Null
+New-Item -ItemType Directory -Path $BackupRoot -Force | Out-Null
+
+$taskExists = $null -ne (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue)
+$taskWasStopped = $false
+$applyStarted = $false
 
 try {
     foreach ($file in $files) {
@@ -52,29 +59,59 @@ try {
             throw ("Downloaded PowerShell validation failed for " + $file + ": " + ($errors -join "; "))
         }
     }
-
     Get-Content (Join-Path $TempRoot "config.example.json") -Raw | ConvertFrom-Json | Out-Null
 
-    $taskExists = $null -ne (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue)
+    Write-Host "Backing up current program files..."
+    foreach ($file in $files) {
+        $current = Join-Path $PSScriptRoot $file
+        if (Test-Path -LiteralPath $current -PathType Leaf) {
+            Copy-Item -LiteralPath $current -Destination (Join-Path $BackupRoot $file) -Force
+        }
+    }
+
     if ($taskExists) {
         Write-Host "Stopping Watchdog scheduled task..."
         Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        $taskWasStopped = $true
         Start-Sleep -Seconds 2
     }
 
+    $applyStarted = $true
     foreach ($file in $files) {
         Copy-Item -LiteralPath (Join-Path $TempRoot $file) -Destination (Join-Path $PSScriptRoot $file) -Force
     }
 
-    if ($taskExists) {
-        Write-Host "Starting Watchdog scheduled task..."
-        Start-ScheduledTask -TaskName $TaskName -ErrorAction Stop
-        Start-Sleep -Seconds 3
-    }
-
     Write-Host "v0.2 test files installed successfully." -ForegroundColor Green
-    Write-Host "Next: run TELEGRAM-SETUP.bat"
+}
+catch {
+    Write-Host ("Update failed: " + $_.Exception.Message) -ForegroundColor Red
+
+    if ($applyStarted) {
+        Write-Warning "Rolling back program files..."
+        foreach ($file in $files) {
+            $backup = Join-Path $BackupRoot $file
+            $target = Join-Path $PSScriptRoot $file
+            if (Test-Path -LiteralPath $backup -PathType Leaf) {
+                Copy-Item -LiteralPath $backup -Destination $target -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+    throw
 }
 finally {
+    if ($taskExists -and $taskWasStopped) {
+        Write-Host "Starting Watchdog scheduled task..."
+        try {
+            Start-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+            Start-Sleep -Seconds 3
+        }
+        catch {
+            Write-Warning "Could not restart the Watchdog scheduled task automatically. Start it manually with Start-ScheduledTask."
+        }
+    }
+
     Remove-Item -LiteralPath $TempRoot -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $BackupRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+Write-Host "Next: run TELEGRAM-SETUP.bat" -ForegroundColor Cyan

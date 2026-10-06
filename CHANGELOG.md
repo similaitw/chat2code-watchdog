@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 - development
+
+- Add GitHub-backed Dashboard heartbeat without Supabase.
+- Publish Runner PID, worker capacity, active running task count, heartbeat time, restart count, machine name, and Runner version to a dedicated control issue.
+- Reuse the existing authenticated `gh` CLI; no extra GitHub token is stored in Watchdog config.
+- Add `DASHBOARD-SETUP.bat` / `dashboard-setup.ps1`.
+- Dashboard heartbeat failures are isolated from Runner recovery and Telegram.
+- Local `status.ps1` shows Dashboard heartbeat status.
+
 ## 0.2.0 - 2026-10-06
 
 - Add safe local restart.ps1 / RESTART.bat so users do not manually launch a duplicate Runner.

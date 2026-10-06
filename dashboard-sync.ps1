@@ -73,14 +73,31 @@ function Get-ControlIssues {
     }
 
     $endpoint = "repos/" + $Repository + "/issues?state=open&per_page=100"
-    $json = & $gh.Source api $endpoint 2>&1
+    # Keep stderr separate from stdout. Merging stderr into stdout (2>&1)
+    # can corrupt otherwise valid JSON when gh emits warnings or notices.
+    $json = @(& $gh.Source api $endpoint)
     if ($LASTEXITCODE -ne 0) {
         throw "gh api failed while reading control queue."
     }
 
-    $combined = ($json -join [Environment]::NewLine)
-    $items = $combined | ConvertFrom-Json
-    return @($items | Where-Object { -not $_.pull_request })
+    $combined = [string]::Join(
+        [Environment]::NewLine,
+        @($json | ForEach-Object { [string]$_ })
+    )
+
+    try {
+        $items = $combined | ConvertFrom-Json
+    }
+    catch {
+        throw "GitHub control queue returned invalid JSON."
+    }
+
+    return @(
+        $items | Where-Object {
+            -not $_.pull_request -and
+            ([string]$_.body) -notmatch '<!--\s*chat2code-runner-status'
+        }
+    )
 }
 
 function Convert-ControlIssue {

@@ -84,6 +84,7 @@ $telegram = [pscustomobject]@{
     enabled = $true
     botToken = $token
     allowedUserIds = @($selectedUserId)
+    notificationChatIds = @($selectedChatId)
     pollSeconds = 5
 }
 

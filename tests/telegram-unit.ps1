@@ -42,8 +42,13 @@ Assert-Equal (Get-TelegramCommand -Text "❌ 取消") "/cancel" "restart cancel 
 
 $mainKeyboard = Get-TelegramMainKeyboardJson | ConvertFrom-Json
 Assert-True ($mainKeyboard.is_persistent) "main keyboard persistent"
+Assert-Equal $mainKeyboard.keyboard.Count 2 "main keyboard row count"
+Assert-Equal $mainKeyboard.keyboard[0].Count 2 "main keyboard first row width"
+Assert-Equal $mainKeyboard.keyboard[1].Count 2 "main keyboard second row width"
 Assert-Equal $mainKeyboard.keyboard[0][0].text "📊 狀態" "main keyboard status label"
 $confirmKeyboard = Get-TelegramRestartConfirmKeyboardJson | ConvertFrom-Json
+Assert-Equal $confirmKeyboard.keyboard.Count 1 "confirm keyboard row count"
+Assert-Equal $confirmKeyboard.keyboard[0].Count 2 "confirm keyboard row width"
 Assert-Equal $confirmKeyboard.keyboard[0][0].text "✅ 確認重啟" "confirm keyboard label"
 
 $tempLog = Join-Path $env:TEMP ("chat2code-watchdog-test-" + [guid]::NewGuid().ToString("N") + ".log")

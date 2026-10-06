@@ -184,3 +184,15 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/similaitw/chat2code-wa
 ```
 
 The updater downloads all v0.2 test files to a temporary folder first, validates PowerShell syntax and JSON, then stops the Watchdog briefly and replaces the program files atomically. It preserves local `config.json`, `runtime/`, and `logs/`.
+
+
+## Telegram task and Dashboard shortcuts
+
+The persistent Telegram menu also exposes:
+
+```text
+📋 任務
+🌐 儀表板
+```
+
+`📋 任務` reads the same `chat2code-control` queue used by the Runner and returns the running/ready/failed/done/unqueued counts plus the most important active tasks. `🌐 儀表板` returns the configured responsive Dashboard URL.

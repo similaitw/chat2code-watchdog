@@ -265,17 +265,20 @@ function Send-DashboardSnapshot {
 
     $headers = @{
         Authorization = "Bearer " + [string]$config.dashboard.ingestSecret
-        "Content-Type" = "application/json"
     }
 
+    # Windows PowerShell 5.1 may encode a string request body using the
+    # legacy Windows code page. Convert JSON to UTF-8 bytes explicitly so
+    # Traditional Chinese task titles survive the PC -> Dashboard upload.
+    $payloadBytes = [System.Text.Encoding]::UTF8.GetBytes($payload)
+
     try {
-        $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -Body $payload -TimeoutSec 25 -ErrorAction Stop
+        $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -ContentType "application/json; charset=utf-8" -Body $payloadBytes -TimeoutSec 25 -ErrorAction Stop
         return $response
     }
     catch {
         throw "Dashboard upload failed."
-    }
-}
+    }}
 
 if ($MyInvocation.InvocationName -ne ".") {
     if ($Once) {

@@ -1,0 +1,57 @@
+name: Windows PowerShell validation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse all PowerShell files
+        shell: powershell
+        run: |
+          $failed = $false
+          Get-ChildItem -Path . -Filter *.ps1 -Recurse | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              Write-Host "::error file=$($_.FullName)::$($errors -join '; ')"
+            }
+            else {
+              Write-Host "PASS $($_.Name)"
+            }
+          }
+          if ($failed) { exit 1 }
+
+      - name: Validate config example JSON
+        shell: powershell
+        run: |
+          Get-Content .\config.example.json -Raw | ConvertFrom-Json | Out-Null
+          Write-Host "PASS config.example.json"
+
+      - name: Run Telegram unit tests
+        shell: powershell
+        run: .\tests\telegram-unit.ps1
+
+      - name: Enforce remote-command safety boundary
+        shell: powershell
+        run: |
+          $source = Get-ChildItem -Path . -Filter *.ps1 -Recurse | Get-Content -Raw
+          $forbidden = @(
+            'Invoke-Expression',
+            'iex ',
+            '/exec',
+            '/cmd',
+            '/powershell'
+          )
+          foreach ($item in $forbidden) {
+            if ($source -match [regex]::Escape($item)) {
+              throw "Forbidden remote-command surface found: $item"
+            }
+          }
+          Write-Host "PASS safety boundary"

@@ -118,3 +118,69 @@ v0.2 will add a Telegram control channel with a strict allow-list and only these
 - `/help`
 
 No `/exec`, `/cmd`, `/powershell`, or arbitrary remote command feature will be added.
+
+
+## Telegram control (v0.2)
+
+After v0.2 is installed, run:
+
+```text
+TELEGRAM-SETUP.bat
+```
+
+The setup wizard:
+
+1. asks for the Bot Token using hidden input;
+2. verifies the bot with Telegram;
+3. waits for you to send `/start` to that bot;
+4. automatically records only that Telegram user ID in local `config.json`;
+5. restarts the Watchdog scheduled task.
+
+`config.json` is ignored by Git and must never be committed.
+
+Supported commands:
+
+```text
+/status
+/restart
+/log
+/help
+```
+
+There is deliberately no remote shell, `/exec`, `/cmd`, or arbitrary PowerShell execution.
+
+Telegram polling runs inside the existing Watchdog process. The bot is checked about every 5 seconds, while Runner health checks remain at the configured interval (default 60 seconds).
+
+
+When the Watchdog detects that the Runner disappeared and performs an automatic recovery attempt, the configured Telegram chat also receives a proactive success/failure notification. This means normal use does not require repeatedly sending `/status`.
+
+
+## Safe local restart
+
+Do not manually launch `chat2code-runner\start.ps1` while Watchdog is managing the Runner.
+
+Use either:
+
+```powershell
+.\restart.ps1
+```
+
+or double-click:
+
+```text
+RESTART.bat
+```
+
+The command temporarily stops the Watchdog scheduled task, restarts only the positively identified Chat2Code Runner process tree, verifies the new Runner PID, then starts the Watchdog again.
+
+
+## Updating an existing ZIP install to the v0.2 test branch
+
+If the local Watchdog folder was originally extracted from ZIP and is not a Git clone, download and run only the updater:
+
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/similaitw/chat2code-watchdog/feature/telegram-v0.2/UPDATE-V02-TEST.ps1" -OutFile ".\UPDATE-V02-TEST.ps1"
+.\UPDATE-V02-TEST.ps1
+```
+
+The updater downloads all v0.2 test files to a temporary folder first, validates PowerShell syntax and JSON, then stops the Watchdog briefly and replaces the program files atomically. It preserves local `config.json`, `runtime/`, and `logs/`.

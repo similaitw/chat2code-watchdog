@@ -205,12 +205,24 @@ try {
                                 $state.runnerStatus = "running"
                                 $state.runnerPids = @($result.Pids)
                                 $state.lastError = $null
+                                if ($telegramModuleAvailable -and (Test-TelegramConfigured -Config $Config)) {
+                                    $message = "Chat2Code Runner was offline and Watchdog restarted it successfully." + [Environment]::NewLine +
+                                        "PID(s): " + (@($result.Pids) -join ", ") + [Environment]::NewLine +
+                                        "Attempt: " + $attemptNumber + "/" + $maxAttempts
+                                    Send-TelegramNotification -Config $Config -Text $message
+                                }
                             }
                             else {
                                 $state.runnerStatus = "offline"
                                 $state.runnerPids = @()
                                 $state.lastError = "Runner start failed: " + [string]$result.Message
                                 Write-Log -Level "ERROR" -Message $state.lastError
+                                if ($telegramModuleAvailable -and (Test-TelegramConfigured -Config $Config)) {
+                                    $message = "Chat2Code Runner automatic restart failed." + [Environment]::NewLine +
+                                        "Attempt: " + $attemptNumber + "/" + $maxAttempts + [Environment]::NewLine +
+                                        "Use /log for recent Watchdog events."
+                                    Send-TelegramNotification -Config $Config -Text $message
+                                }
                             }
                         }
                     }

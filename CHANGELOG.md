@@ -2,6 +2,7 @@
 
 ## 0.2.0 - development
 
+- Add safe local restart.ps1 / RESTART.bat so users do not manually launch a duplicate Runner.
 - Add Telegram Bot setup wizard with secure token input.
 - Auto-discover the authorized Telegram user by waiting for an intentional /start message.
 - Add allow-listed /status, /restart, /log, /help commands.

@@ -19,7 +19,7 @@ function Get-Chat2CodeRunnerProcesses {
         throw "Unable to query Windows processes: $($_.Exception.Message)"
     }
 
-    $matches = @()
+    $runnerMatches = @()
     foreach ($proc in $processes) {
         $name = [string]$proc.Name
         $cmd = [string]$proc.CommandLine
@@ -33,7 +33,7 @@ function Get-Chat2CodeRunnerProcesses {
         $hasRunVerb = $cmd -match '(?i)(?:^|\s)run(?:\s|$)'
 
         if ($isPython -and $hasMarker -and $hasRunVerb) {
-            $matches += [pscustomobject]@{
+            $runnerMatches += [pscustomobject]@{
                 ProcessId       = [int]$proc.ProcessId
                 ParentProcessId = [int]$proc.ParentProcessId
                 Name            = $name
@@ -43,7 +43,7 @@ function Get-Chat2CodeRunnerProcesses {
         }
     }
 
-    return @($matches)
+    return @($runnerMatches)
 }
 
 function Stop-Chat2CodeRunner {

@@ -33,6 +33,7 @@ Assert-Equal (Get-TelegramCommand -Text "/status") "/status" "status command"
 Assert-Equal (Get-TelegramCommand -Text "/restart@mybot extra") "/restart" "group bot command"
 Assert-Equal (Get-TelegramCommand -Text "hello") "" "non-command ignored"
 Assert-Equal (Get-TelegramCommand -Text "📊 狀態") "/status" "status button mapping"
+Assert-Equal (Get-TelegramCommand -Text "📋 任務") "/tasks" "tasks button mapping"
 Assert-Equal (Get-TelegramCommand -Text "📜 最近紀錄") "/log" "log button mapping"
 Assert-Equal (Get-TelegramCommand -Text "🔄 重啟") "/restart" "restart button mapping"
 Assert-Equal (Get-TelegramCommand -Text ("🔄" + [char]0xFE0F + " 重啟")) "/restart" "restart button variation-selector mapping"
@@ -42,9 +43,10 @@ Assert-Equal (Get-TelegramCommand -Text "❌ 取消") "/cancel" "restart cancel 
 
 $mainKeyboard = Get-TelegramMainKeyboardJson | ConvertFrom-Json
 Assert-True ($mainKeyboard.is_persistent) "main keyboard persistent"
-Assert-Equal $mainKeyboard.keyboard.Count 2 "main keyboard row count"
+Assert-Equal $mainKeyboard.keyboard.Count 3 "main keyboard row count"
 Assert-Equal $mainKeyboard.keyboard[0].Count 2 "main keyboard first row width"
 Assert-Equal $mainKeyboard.keyboard[1].Count 2 "main keyboard second row width"
+Assert-Equal $mainKeyboard.keyboard[2].Count 1 "main keyboard third row width"
 Assert-Equal $mainKeyboard.keyboard[0][0].text "📊 狀態" "main keyboard status label"
 $confirmKeyboard = Get-TelegramRestartConfirmKeyboardJson | ConvertFrom-Json
 Assert-Equal $confirmKeyboard.keyboard.Count 1 "confirm keyboard row count"

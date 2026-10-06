@@ -71,12 +71,12 @@ function Stop-Chat2CodeRunner {
             $taskkill = Join-Path $env:SystemRoot "System32\taskkill.exe"
             $result = & $taskkill /PID $pidValue /T /F 2>&1
             if ($LASTEXITCODE -ne 0) {
-                if ($Logger) { & $Logger "WARN" "taskkill PID=$pidValue returned exit=$LASTEXITCODE: $($result -join ' ')" }
+                if ($Logger) { & $Logger "WARN" "taskkill PID=${pidValue} returned exit=${LASTEXITCODE}: $($result -join ' ')" }
                 $success = $false
             }
         }
         catch {
-            if ($Logger) { & $Logger "ERROR" "Failed to stop PID=$pidValue: $($_.Exception.Message)" }
+            if ($Logger) { & $Logger "ERROR" "Failed to stop PID=${pidValue}: $($_.Exception.Message)" }
             $success = $false
         }
     }

@@ -1,0 +1,52 @@
+Set-StrictMode -Version 2.0
+$ErrorActionPreference = "Stop"
+
+. (Join-Path $PSScriptRoot "..\telegram.ps1")
+
+function Assert-Equal {
+    param($Actual, $Expected, [string]$Name)
+    if ($Actual -ne $Expected) {
+        throw "$Name failed. Expected=[$Expected] Actual=[$Actual]"
+    }
+    Write-Host "PASS $Name"
+}
+
+function Assert-True {
+    param([bool]$Condition, [string]$Name)
+    if (-not $Condition) { throw "$Name failed." }
+    Write-Host "PASS $Name"
+}
+
+$config = [pscustomobject]@{
+    telegram = [pscustomobject]@{
+        enabled = $true
+        botToken = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef"
+        allowedUserIds = @("10001")
+        pollSeconds = 5
+    }
+}
+
+Assert-True (Test-TelegramConfigured -Config $config) "configured bot"
+Assert-True (Test-TelegramAuthorized -Config $config -UserId "10001") "authorized user"
+Assert-True (-not (Test-TelegramAuthorized -Config $config -UserId "99999")) "unauthorized user rejected"
+Assert-Equal (Get-TelegramCommand -Text "/status") "/status" "status command"
+Assert-Equal (Get-TelegramCommand -Text "/restart@mybot extra") "/restart" "group bot command"
+Assert-Equal (Get-TelegramCommand -Text "hello") "" "non-command ignored"
+
+$tempLog = Join-Path $env:TEMP ("chat2code-watchdog-test-" + [guid]::NewGuid().ToString("N") + ".log")
+try {
+    $token = [string]$config.telegram.botToken
+    Set-Content -LiteralPath $tempLog -Encoding UTF8 -Value @(
+        "normal log line",
+        ("token=" + $token),
+        "ghp_123456789012345678901234567890"
+    )
+    $redacted = Get-RedactedRecentLog -Config $config -LogPath $tempLog -Lines 30
+    Assert-True (-not $redacted.Contains($token)) "Telegram token redacted"
+    Assert-True ($redacted.Contains("[REDACTED")) "redaction marker present"
+}
+finally {
+    Remove-Item -LiteralPath $tempLog -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host "All Telegram unit tests passed."

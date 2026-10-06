@@ -48,6 +48,31 @@ function Send-TelegramMessage {
     })
 }
 
+
+function Send-TelegramNotification {
+    param(
+        [Parameter(Mandatory = $true)][pscustomobject]$Config,
+        [Parameter(Mandatory = $true)][string]$Text
+    )
+
+    $targets = @()
+    if ($Config.telegram.PSObject.Properties.Name -contains "notificationChatIds") {
+        $targets = @($Config.telegram.notificationChatIds)
+    }
+    if ($targets.Count -eq 0) {
+        $targets = @($Config.telegram.allowedUserIds)
+    }
+
+    foreach ($chatId in $targets) {
+        if (-not $chatId) { continue }
+        try {
+            Send-TelegramMessage -Config $Config -ChatId ([string]$chatId) -Text $Text
+        }
+        catch {
+            # Keep notification failure isolated from Watchdog health recovery.
+        }
+    }
+}
 function Get-TelegramUpdates {
     param(
         [Parameter(Mandatory = $true)][pscustomobject]$Config,

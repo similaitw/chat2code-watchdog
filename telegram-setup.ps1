@@ -99,6 +99,7 @@ $config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $ConfigPath -Encodi
 
 $commandsJson = @(
     @{ command = "status"; description = "查看 Runner 狀態" },
+    @{ command = "tasks"; description = "查看 Chat2Code 任務" },
     @{ command = "restart"; description = "重新啟動 Runner" },
     @{ command = "log"; description = "查看最近紀錄" },
     @{ command = "help"; description = "顯示操作按鈕" }
@@ -115,10 +116,13 @@ $keyboardJson = @{
     keyboard = @(
         @(
             @{ text = "📊 狀態" },
-            @{ text = "📜 最近紀錄" }
+            @{ text = "📋 任務" }
         ),
         @(
-            @{ text = "🔄 重啟" },
+            @{ text = "📜 最近紀錄" },
+            @{ text = "🔄 重啟" }
+        ),
+        @(
             @{ text = "❓ 說明" }
         )
     )
@@ -130,7 +134,7 @@ $keyboardJson = @{
 $nl = [Environment]::NewLine
 $message = "Chat2Code Watchdog Telegram setup complete." + $nl +
     "Authorized user: " + $selectedName + " (" + $selectedUserId + ")" + $nl +
-    "Available commands: /status /restart /log /help"
+    "Available commands: /status /tasks /restart /log /help"
 
 [void](Invoke-SetupTelegramApi -Method "sendMessage" -Body @{ chat_id = $selectedChatId; text = $message; reply_markup = $keyboardJson })
 

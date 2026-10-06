@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0 - development
+## 0.2.0 - 2026-10-06
 
 - Add safe local restart.ps1 / RESTART.bat so users do not manually launch a duplicate Runner.
 - Add Telegram Bot setup wizard with secure token input.

@@ -73,23 +73,42 @@ function Get-ControlIssues {
     }
 
     $endpoint = "repos/" + $Repository + "/issues?state=open&per_page=100"
-    # Keep stderr separate from stdout. Merging stderr into stdout (2>&1)
-    # can corrupt otherwise valid JSON when gh emits warnings or notices.
-    $json = @(& $gh.Source api $endpoint)
-    if ($LASTEXITCODE -ne 0) {
-        throw "gh api failed while reading control queue."
-    }
 
-    $combined = [string]::Join(
-        [Environment]::NewLine,
-        @($json | ForEach-Object { [string]$_ })
-    )
+    # Windows PowerShell 5.1 can decode native-process UTF-8 stdout using the
+    # legacy system code page. With Traditional Chinese issue text this can
+    # corrupt otherwise valid JSON. Redirect gh stdout to a file as raw bytes,
+    # then explicitly read it back as UTF-8.
+    $runId = [guid]::NewGuid().ToString("N")
+    $stdoutPath = Join-Path $env:TEMP ("chat2code-gh-" + $runId + ".json")
+    $stderrPath = Join-Path $env:TEMP ("chat2code-gh-" + $runId + ".err")
 
     try {
-        $items = $combined | ConvertFrom-Json
+        $process = Start-Process `
+            -FilePath $gh.Source `
+            -ArgumentList @("api", $endpoint) `
+            -NoNewWindow `
+            -Wait `
+            -PassThru `
+            -RedirectStandardOutput $stdoutPath `
+            -RedirectStandardError $stderrPath
+
+        if ($process.ExitCode -ne 0) {
+            throw "gh api failed while reading control queue."
+        }
+
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        $combined = [System.IO.File]::ReadAllText($stdoutPath, $utf8NoBom)
+
+        try {
+            $items = $combined | ConvertFrom-Json
+        }
+        catch {
+            throw "GitHub control queue returned invalid UTF-8 JSON."
+        }
     }
-    catch {
-        throw "GitHub control queue returned invalid JSON."
+    finally {
+        Remove-Item -LiteralPath $stdoutPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
     }
 
     return @(

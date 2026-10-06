@@ -116,4 +116,5 @@ finally {
     Remove-Item -LiteralPath $BackupRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "Next: run TELEGRAM-SETUP.bat" -ForegroundColor Cyan
+Write-Host "Update complete." -ForegroundColor Cyan
+Write-Host "If Telegram is already configured, run TELEGRAM-DIAGNOSE.bat only when troubleshooting."

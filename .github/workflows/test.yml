@@ -34,6 +34,10 @@ jobs:
           Get-Content .\config.example.json -Raw | ConvertFrom-Json | Out-Null
           Write-Host "PASS config.example.json"
 
+      - name: Run Telegram unit tests
+        shell: powershell
+        run: .\tests\telegram-unit.ps1
+
       - name: Enforce remote-command safety boundary
         shell: powershell
         run: |

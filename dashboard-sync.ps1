@@ -113,8 +113,16 @@ function Get-ControlIssues {
 
     return @(
         $items | Where-Object {
-            -not $_.pull_request -and
-            ([string]$_.body) -notmatch '<!--\s*chat2code-runner-status'
+            $hasPullRequest = $_.PSObject.Properties.Name -contains "pull_request"
+            $isPullRequest = $hasPullRequest -and $null -ne $_.pull_request
+
+            $body = ""
+            if ($_.PSObject.Properties.Name -contains "body" -and $null -ne $_.body) {
+                $body = [string]$_.body
+            }
+
+            -not $isPullRequest -and
+            $body -notmatch '<!--\s*chat2code-runner-status'
         }
     )
 }

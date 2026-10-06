@@ -172,3 +172,15 @@ RESTART.bat
 ```
 
 The command temporarily stops the Watchdog scheduled task, restarts only the positively identified Chat2Code Runner process tree, verifies the new Runner PID, then starts the Watchdog again.
+
+
+## Updating an existing ZIP install to the v0.2 test branch
+
+If the local Watchdog folder was originally extracted from ZIP and is not a Git clone, download and run only the updater:
+
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/similaitw/chat2code-watchdog/feature/telegram-v0.2/UPDATE-V02-TEST.ps1" -OutFile ".\UPDATE-V02-TEST.ps1"
+.\UPDATE-V02-TEST.ps1
+```
+
+The updater downloads all v0.2 test files to a temporary folder first, validates PowerShell syntax and JSON, then stops the Watchdog briefly and replaces the program files atomically. It preserves local `config.json`, `runtime/`, and `logs/`.

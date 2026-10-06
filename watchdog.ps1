@@ -153,6 +153,7 @@ try {
         exit 0
     }
 
+    $hadHealthCheckError = $false
     $state = Load-State
     $state.watchdogStatus = "running"
     $state.lastError = $null
@@ -218,6 +219,7 @@ try {
             }
         }
         catch {
+            $hadHealthCheckError = $true
             $state.lastError = $_.Exception.Message
             Write-Log -Level "ERROR" -Message "Health check failed: $($_.Exception.Message)"
         }
@@ -246,4 +248,8 @@ finally {
         try { $mutex.ReleaseMutex() } catch {}
     }
     if ($mutex) { $mutex.Dispose() }
+}
+
+if ($Once -and $hadHealthCheckError) {
+    exit 1
 }

@@ -150,3 +150,6 @@ Supported commands:
 There is deliberately no remote shell, `/exec`, `/cmd`, or arbitrary PowerShell execution.
 
 Telegram polling runs inside the existing Watchdog process. The bot is checked about every 5 seconds, while Runner health checks remain at the configured interval (default 60 seconds).
+
+
+When the Watchdog detects that the Runner disappeared and performs an automatic recovery attempt, the configured Telegram chat also receives a proactive success/failure notification. This means normal use does not require repeatedly sending `/status`.

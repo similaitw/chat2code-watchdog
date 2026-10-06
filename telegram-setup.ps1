@@ -97,12 +97,42 @@ else {
 
 $config | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
 
+$commandsJson = @(
+    @{ command = "status"; description = "查看 Runner 狀態" },
+    @{ command = "restart"; description = "重新啟動 Runner" },
+    @{ command = "log"; description = "查看最近紀錄" },
+    @{ command = "help"; description = "顯示操作按鈕" }
+) | ConvertTo-Json -Depth 5 -Compress
+
+try {
+    [void](Invoke-SetupTelegramApi -Method "setMyCommands" -Body @{ commands = $commandsJson })
+}
+catch {
+    Write-Warning "Bot command menu could not be registered; button menu will still work."
+}
+
+$keyboardJson = @{
+    keyboard = @(
+        @(
+            @{ text = "📊 狀態" },
+            @{ text = "📜 最近紀錄" }
+        ),
+        @(
+            @{ text = "🔄 重啟" },
+            @{ text = "❓ 說明" }
+        )
+    )
+    resize_keyboard = $true
+    is_persistent = $true
+    input_field_placeholder = "點選下方按鈕"
+} | ConvertTo-Json -Depth 8 -Compress
+
 $nl = [Environment]::NewLine
 $message = "Chat2Code Watchdog Telegram setup complete." + $nl +
     "Authorized user: " + $selectedName + " (" + $selectedUserId + ")" + $nl +
     "Available commands: /status /restart /log /help"
 
-[void](Invoke-SetupTelegramApi -Method "sendMessage" -Body @{ chat_id = $selectedChatId; text = $message })
+[void](Invoke-SetupTelegramApi -Method "sendMessage" -Body @{ chat_id = $selectedChatId; text = $message; reply_markup = $keyboardJson })
 
 Write-Host ""
 Write-Host ("Authorized Telegram user ID: " + $selectedUserId) -ForegroundColor Green

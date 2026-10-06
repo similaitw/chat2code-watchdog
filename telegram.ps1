@@ -192,6 +192,10 @@ function Invoke-TelegramCommand {
             $logText = Get-RedactedRecentLog -Config $Config -LogPath $LogPath -Lines 30
             Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Recent Watchdog log:" + $nl + $nl + $logText)
         }
+        "/start" {
+            $helpText = "/status - view Runner status" + $nl + "/restart - restart Chat2Code Runner" + $nl + "/log - last 30 Watchdog log lines" + $nl + "/help - show this help"
+            Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Watchdog" + $nl + $nl + $helpText)
+        }
         "/help" {
             $helpText = "/status - view Runner status" + $nl + "/restart - restart Chat2Code Runner" + $nl + "/log - last 30 Watchdog log lines" + $nl + "/help - show this help"
             Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Watchdog" + $nl + $nl + $helpText)

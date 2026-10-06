@@ -19,5 +19,13 @@
     "allowedUserIds": [],
     "pollSeconds": 5,
     "notificationChatIds": []
+  },
+  "dashboard": {
+    "enabled": false,
+    "url": "",
+    "ingestSecret": "",
+    "controlRepository": "similaitw/chat2code-control",
+    "syncSeconds": 30,
+    "workers": 2
   }
 }

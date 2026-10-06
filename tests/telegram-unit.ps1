@@ -35,6 +35,8 @@ Assert-Equal (Get-TelegramCommand -Text "hello") "" "non-command ignored"
 Assert-Equal (Get-TelegramCommand -Text "📊 狀態") "/status" "status button mapping"
 Assert-Equal (Get-TelegramCommand -Text "📜 最近紀錄") "/log" "log button mapping"
 Assert-Equal (Get-TelegramCommand -Text "🔄 重啟") "/restart" "restart button mapping"
+Assert-Equal (Get-TelegramCommand -Text ("🔄" + [char]0xFE0F + " 重啟")) "/restart" "restart button variation-selector mapping"
+Assert-Equal (Get-TelegramCommand -Text "重啟") "/restart" "restart keyword mapping"
 Assert-Equal (Get-TelegramCommand -Text "✅ 確認重啟") "/restart-confirm" "restart confirm mapping"
 Assert-Equal (Get-TelegramCommand -Text "❌ 取消") "/cancel" "restart cancel mapping"
 

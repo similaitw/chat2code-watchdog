@@ -69,7 +69,7 @@ function Invoke-TelegramApi {
 function Get-TelegramMainKeyboardJson {
     # Use literal JSON. PowerShell can unroll nested arrays when building them
     # dynamically, which produces an invalid Telegram ReplyKeyboardMarkup.
-    return '{"keyboard":[[{"text":"📊 狀態"},{"text":"📋 任務"}],[{"text":"📜 最近紀錄"},{"text":"🔄 重啟"}],[{"text":"❓ 說明"}]],"resize_keyboard":true,"is_persistent":true,"input_field_placeholder":"點選下方按鈕"}'
+    return '{"keyboard":[[{"text":"📊 狀態"},{"text":"📋 任務"}],[{"text":"🌐 儀表板"},{"text":"📜 最近紀錄"}],[{"text":"🔄 重啟"},{"text":"❓ 說明"}]],"resize_keyboard":true,"is_persistent":true,"input_field_placeholder":"點選下方按鈕"}'
 }
 
 function Get-TelegramRestartConfirmKeyboardJson {
@@ -169,6 +169,7 @@ function Get-TelegramCommand {
     if ($normalized -like "*取消*") { return "/cancel" }
     if ($normalized -like "*最近紀錄*" -or $normalized -like "*紀錄*") { return "/log" }
     if ($normalized -like "*任務*" -or $normalized -like "*工作*" -or $normalized -like "*佇列*") { return "/tasks" }
+    if ($normalized -like "*儀表板*" -or $normalized -like "*Dashboard*") { return "/dashboard" }
     if ($normalized -like "*狀態*") { return "/status" }
     if ($normalized -like "*重啟*") { return "/restart" }
     if ($normalized -like "*說明*") { return "/help" }
@@ -340,6 +341,20 @@ function Invoke-TelegramCommand {
             Send-TelegramMessage -Config $Config -ChatId $chatId -Text (Get-Chat2CodeTasksText -Config $Config) -ReplyMarkupJson $mainKeyboard
         }
 
+        "/dashboard" {
+            $dashboardUrl = ""
+            if ($Config.PSObject.Properties.Name -contains "dashboard" -and $Config.dashboard.url) {
+                $dashboardUrl = ([string]$Config.dashboard.url).TrimEnd("/")
+            }
+
+            if ($dashboardUrl) {
+                Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("🌐 Chat2Code Dashboard" + $nl + $dashboardUrl) -ReplyMarkupJson $mainKeyboard
+            }
+            else {
+                Send-TelegramMessage -Config $Config -ChatId $chatId -Text "Dashboard 尚未設定。" -ReplyMarkupJson $mainKeyboard
+            }
+        }
+
         "/restart" {
             $currentRunner = @(Get-Chat2CodeRunnerProcesses -Config $Config)
             $currentPids = if ($currentRunner.Count -gt 0) { (@($currentRunner.ProcessId) -join ", ") } else { "-" }
@@ -408,6 +423,7 @@ function Invoke-TelegramCommand {
             $helpText = "直接點下方按鈕即可操作。" + $nl +
                 "📊 狀態：查看 Runner 狀態" + $nl +
                 "📋 任務：查看工作佇列與數量" + $nl +
+                "🌐 儀表板：開啟完整 Dashboard" + $nl +
                 "📜 最近紀錄：查看最近 30 行紀錄" + $nl +
                 "🔄 重啟：安全重新啟動 Runner（需再次確認）"
             Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Watchdog" + $nl + $nl + $helpText) -ReplyMarkupJson $mainKeyboard
@@ -417,6 +433,7 @@ function Invoke-TelegramCommand {
             $helpText = "直接點下方按鈕即可操作。" + $nl +
                 "📊 狀態：查看 Runner 狀態" + $nl +
                 "📋 任務：查看工作佇列與數量" + $nl +
+                "🌐 儀表板：開啟完整 Dashboard" + $nl +
                 "📜 最近紀錄：查看最近 30 行紀錄" + $nl +
                 "🔄 重啟：安全重新啟動 Runner（需再次確認）"
             Send-TelegramMessage -Config $Config -ChatId $chatId -Text ("Chat2Code Watchdog" + $nl + $nl + $helpText) -ReplyMarkupJson $mainKeyboard

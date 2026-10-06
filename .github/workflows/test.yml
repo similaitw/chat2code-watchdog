@@ -38,6 +38,24 @@ jobs:
         shell: powershell
         run: .\tests\telegram-unit.ps1
 
+      - name: Guard Windows PowerShell 5.1 Dashboard regressions
+        shell: powershell
+        run: |
+          $source = Get-Content .\dashboard-sync.ps1 -Raw
+          if ($source -match '(?im)^\s*\$pid\s*=') {
+            throw 'dashboard-sync.ps1 must not assign to the readonly $PID automatic variable.'
+          }
+          if ($source -notmatch '\[System\.Text\.Encoding\]::UTF8\.GetBytes\(\$payload\)') {
+            throw 'Dashboard upload must explicitly encode JSON as UTF-8 bytes.'
+          }
+          if ($source -notmatch 'ReadAllText\(\$stdoutPath,\s*\$utf8NoBom\)') {
+            throw 'gh JSON must be read explicitly as UTF-8 on Windows PowerShell 5.1.'
+          }
+          if ($source -match '2>&1') {
+            throw 'Do not merge gh stderr into JSON stdout.'
+          }
+          Write-Host 'PASS Windows PowerShell 5.1 Dashboard guards'
+
       - name: Enforce remote-command safety boundary
         shell: powershell
         run: |

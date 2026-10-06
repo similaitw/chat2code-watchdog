@@ -8,6 +8,7 @@
 - Add Telegram log redaction and sanitized API error handling.
 - Keep manual restart count separate from automatic restart-loop protection.
 - Add Telegram state to local status output.
+- Send proactive Telegram notifications when automatic Runner recovery succeeds or fails.
 - Add Windows GitHub Actions validation for PowerShell syntax, JSON config, and remote-command safety boundaries.
 
 ## 0.1.0 - 2026-10-06
